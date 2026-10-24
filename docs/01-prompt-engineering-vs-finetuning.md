@@ -37,6 +37,16 @@
 
 > 元素怎么组合、改完怎么验证，属于具体项目里的操作；记住这张清单，写任何 prompt 前先过一遍"我漏了哪个要素"。
 
+**这张表的依据（不是自创清单）**
+
+| 来源 | 性质 | 与本表的对应 |
+|---|---|---|
+| **CO-STAR 框架**（GovTech 新加坡数据科学团队；Sheila Teo 以此获 2023 首届 GPT-4 提示工程大赛冠军，官方 playbook 见 go.gov.sg/promptengineering-playbook） | 业界结构化提示框架，六要素：Context / Objective / Style / Tone / Audience / Response | Objective≈指令，Context≈上下文，Audience≈身份，Response≈输出格式；Style/Tone 是内容创作的细分，工程场景并入"身份+约束" |
+| **Anthropic 官方提示最佳实践** | 厂商工程标准：role（系统提示）、context、3~5 个 multishot 示例、XML 标签隔离、显式输出格式与约束 | 与本表逐项对应；"1~3 个示例"一类数字的出处即此类官方建议 |
+| **White et al., 2023,《A Prompt Pattern Catalog to Enhance Prompt Engineering with ChatGPT》**（arXiv:2302.11382） | 学术侧：将 prompt 模式当设计模式编目（persona、template、output automater 等） | 学术界尚无钦定的元素清单，但 pattern catalog 支撑了这些构件的成立 |
+
+一句话：**本表 = CO-STAR + 厂商官方最佳实践在工程场景下的压缩**，不是发明；学术侧可作延伸阅读。
+
 #### Prompt Tuning 怎么做（机制，理解边界即可）
 
 - **冻结全部模型权重**，只训练一组**连续向量**（soft prompt）：在输入层（Prefix Tuning 则在每层 Transformer 前）拼接可训练向量，与文字 prompt 一起送入模型。
