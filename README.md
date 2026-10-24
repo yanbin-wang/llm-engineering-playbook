@@ -1,94 +1,55 @@
-# LLM Engineering Playbook · 大模型应用工程：方法边界与选型手册
+# LLM Engineering Playbook · 大模型应用工程：从任务到可交付系统
 
-> 这不是学习笔记，是一本**工程决策手册**：记录的不是"学了什么"，而是"遇到什么问题 → 选什么方案 → 边界在哪"。
-> 范围是方法边界与选型：什么时候轮到提示工程、什么时候轮到微调，以及写 prompt 时采用哪套现成标准（CO-STAR 或 Anthropic 官方最佳实践）。方法部分不自创维度，直接采用这两个标准。
+> 这是一本 **LLM 应用工程 playbook**：帮你把任务落到可交付的系统上。它是方法边界与选型的决策手册，记录「遇到什么问题 → 选哪条路线 → 边界在哪」，不是提示词作文课。
 
-## 怎么用这本手册
+## 这是什么与怎么用
 
-先读[两条技术路线](#两条技术路线)和[产品落地优先级](#产品落地优先级)，决定走推理时工程还是微调，以及落地时先做哪一步。
+先判断任务落在哪条路线，再只读那条路线的方法。默认顺序是 **A 纯提示层 → B 系统增强的推理时工程 → C 微调**，按这个顺序升级，不是三门并列选修。CO-STAR 和 Anthropic 放在路线 A 里，只负责写 prompt；要不要改权重，是 A、B 和 C 的分界。
 
-需要写 prompt 时，再看[何时用 CO-STAR 与 Anthropic](#何时用-co-star-与-anthropic)，然后打开对应标准全文：内容创作、面向特定受众用 [CO-STAR](docs/co-star.md)；API 调用、输出被程序消费用 [Anthropic 官方最佳实践](docs/anthropic-prompt-engineering.md)。
+1. 用[四个判据](#接到任务先问什么)把任务放到这条顺序上。多数任务从 A 做起。
+2. 路线定了再下钻方法：[路线 A](#路线-a-纯提示层)、[路线 B](#路线-b-系统增强的推理时工程)、[路线 C](#路线-c-何时才上微调)。
+3. 页尾的术语、API 能力边界和一句话记忆用来对照。机制细节、提示注入、IAG 在[附录](docs/appendix.md)。
 
-术语对照、方法谱系、在线 API 能力边界和一句话记忆都在本页后半，用下面的目录跳转。Prompt Tuning 的机制细节、提示注入、IAG 组内调研见[附录](docs/appendix.md)。
+### 目录
 
-## 目录
-
-- [怎么用这本手册](#怎么用这本手册)
-- [边界判断](#边界判断)
-  - [两条技术路线](#两条技术路线)
-    - [路线一：推理时工程（Inference-time Engineering）——不改权重](#路线一推理时工程inference-time-engineering不改权重)
-      - [A. 纯提示层（Prompt-level，纯 API 调用可实现）](#a-纯提示层prompt-level纯-api-调用可实现)
-      - [B. 系统层（System-level，需 API 外基础设施）](#b-系统层system-level需-api-外基础设施)
-    - [路线二：微调（Fine-tuning）——改权重](#路线二微调fine-tuning改权重)
-  - [产品落地优先级](#产品落地优先级)
+- [这是什么与怎么用](#这是什么与怎么用)
+- [接到任务先问什么](#接到任务先问什么)
+- [选路线](#选路线)
+- [路线 A 纯提示层](#路线-a-纯提示层)
+  - [路线 A 的方法](#路线-a-的方法)
   - [何时用 CO-STAR 与 Anthropic](#何时用-co-star-与-anthropic)
-  - [核心概念澄清](#核心概念澄清)
-    - [Prompt 相关术语](#prompt-相关术语)
-  - [Prompt 工程内部的方法论](#prompt-工程内部的方法论)
-    - [按示例数量分](#按示例数量分)
-    - [推理增强提示（Reasoning-augmented）——均不需要微调](#推理增强提示reasoning-augmented均不需要微调)
-  - [API 服务的能力边界（OpenAI / DeepSeek / GLM 等在线 API）](#api-服务的能力边界openai--deepseek--glm-等在线-api)
+- [路线 B 系统增强的推理时工程](#路线-b-系统增强的推理时工程)
+- [路线 C 何时才上微调](#路线-c-何时才上微调)
+- [术语、API 边界与一句话](#术语-api-边界与一句话)
+  - [Prompt 相关术语](#prompt-相关术语)
+  - [API 服务的能力边界](#api-服务的能力边界)
   - [一句话记忆](#一句话记忆)
 - [维护约定](#维护约定)
-- [CO-STAR 框架（中文版）](docs/co-star.md)
-  - [框架定义](docs/co-star.md#框架定义)
-  - [各要素说明](docs/co-star.md#各要素说明)
-  - [完整示例（译自原作）](docs/co-star.md#完整示例译自原作)
-  - [配套技巧：分隔符](docs/co-star.md#配套技巧分隔符)
-  - [适用边界](docs/co-star.md#适用边界)
-- [Anthropic 官方提示工程最佳实践（中文版）](docs/anthropic-prompt-engineering.md)
-  - [1. Be clear and direct（清晰直接）](docs/anthropic-prompt-engineering.md#1-be-clear-and-direct清晰直接)
-  - [2. Use examples (multishot prompting)（用示例）](docs/anthropic-prompt-engineering.md#2-use-examples-multishot-prompting用示例)
-  - [3. Let Claude think (chain of thought)（让模型思考）](docs/anthropic-prompt-engineering.md#3-let-claude-think-chain-of-thought让模型思考)
-  - [4. Use XML tags（用 XML 标签结构化）](docs/anthropic-prompt-engineering.md#4-use-xml-tags用-xml-标签结构化)
-  - [5. Give Claude a role（给角色）](docs/anthropic-prompt-engineering.md#5-give-claude-a-role给角色)
-  - [6. Prefill the response（预填充响应）](docs/anthropic-prompt-engineering.md#6-prefill-the-response预填充响应)
-  - [7. Chain prompts（链式提示）](docs/anthropic-prompt-engineering.md#7-chain-prompts链式提示)
-  - [8. Long context tips（长上下文技巧）](docs/anthropic-prompt-engineering.md#8-long-context-tips长上下文技巧)
-  - [官方建议的通用工作流](docs/anthropic-prompt-engineering.md#官方建议的通用工作流)
-- [附录：机制细节、安全项与组内调研](docs/appendix.md)
-  - [Prompt Tuning 怎么做（机制，理解边界即可）](docs/appendix.md#prompt-tuning-怎么做机制理解边界即可)
-  - [提示注入（安全项）](docs/appendix.md#提示注入安全项)
-  - [IAG 组内调研](docs/appendix.md#iag-组内调研)
 
-## 边界判断
+标准全文和附录不在这条顺序里。写 prompt 时再打开路线 A 的标准：[CO-STAR](docs/co-star.md) · [Anthropic 官方最佳实践](docs/anthropic-prompt-engineering.md)。查机制、安全项或组内调研时打开[附录](docs/appendix.md)。
 
-用数据继续训练模型、修改模型权重，让模型"内化"格式或领域知识。与推理时工程是**两条独立路线**，不是同一件事的两个阶段。
+## 接到任务先问什么
 
-### 两条技术路线
+先问下面四件事。答案决定停在哪一级；路线定了，再打开对应的方法包。
 
-#### 路线一：推理时工程（Inference-time Engineering）——不改权重
+| 先问 | 推向 |
+|---|---|
+| **格式稳不稳** | 不稳，从 A 做起：结构化输出、低温度、系统消息锁格式。仍不稳，加 B 的校验重试。结构化参数仍然搞不定，才够到 C 的一条理由。 |
+| **知识是否必须外置** | 资料会变、不能靠模型背下来，走 B 的 RAG 或工具，把知识留在系统里。要内化的是领域术语或风格，而且示例已经太占 token，才够到 C 的一条理由。 |
+| **延迟和成本** | 先在 A、B 里把提示收短、去掉多余调用。延迟敏感到必须再缩短提示，才够到 C 的一条理由。 |
+| **能不能碰权重** | 碰不到权重，就停在 A 和 B。在线 API 上能走的改权重入口，是厂商微调 API，而且成本要可接受。Prompt Tuning / Prefix Tuning 还要能访问模型权重，见[附录](docs/appendix.md#prompt-tuning-怎么做机制理解边界即可)。 |
 
-绝大多数产品的主路线，又分两层：
+## 选路线
 
-##### A. 纯提示层（Prompt-level，纯 API 调用可实现）
+按 **A → B → C** 升级。先看每一级做什么，再进入该级的方法。
 
-- 系统消息硬性约束输出格式（用分隔符隔离指令与内容）
-- **零样本提示**（Zero-shot）：只给指令，不给示例
-- **少样本提示**（Few-shot）：在 prompt 里给 1~3 个"输入→期望输出"示例，让模型模仿
-- 低 temperature / top_p，降低随机性
-- API 结构化输出参数（`response_format` 设为 `json_object` 或 JSON Schema），从解码层杜绝格式错误
-- 分步拆解、链式调用：把复杂任务拆成多次 API 调用，每次任务更窄
+- **A 纯提示层** — 不改权重。只改 prompt 和调用参数，纯 API 调用可完成。默认起点。
+- **B 系统增强的推理时工程** — 仍不改权重。A 稳不住格式、知识必须外置、或必须调用工具时，加上校验重试、RAG、工具和上下文。
+- **C 微调（含 PEFT）** — 改权重。A 和 B 都到了边界，并且[适用条件](#路线-c-何时才上微调)成立，才上。
 
-##### B. 系统层（System-level，需 API 外基础设施）
+A 和 B 都不改权重，合在一起是推理时工程，也是绝大多数产品的主路线。多数任务停在 A，或 A 再加上 B 的一步。
 
-- **输出校验 + 自动重试**：应用层用 JSON Schema / 正则校验，不合规就重调并把错误反馈给模型
-- **RAG**（检索增强生成）：先检索相关资料再让模型回答，减少胡编、提升事实准确率
-- **上下文工程**：向量库、文档处理、查询重写、状态管理
-- **Function Calling / 工具调用**：让模型调函数查真实数据，服务端需实现函数端点
-
-#### 路线二：微调（Fine-tuning）——改权重
-
-适用场景（**不是起点，是升级选项**）：
-
-1. 格式极复杂，结构化输出参数搞不定
-2. 领域术语/风格要求高，提示里塞示例太占 token
-3. 延迟敏感，需要缩短提示
-4. 厂商提供微调 API 且成本可接受
-
-### 产品落地优先级
-
-目标：每次按格式返回正确结果。按顺序做，前一步不够再上下一步：
+任务若只是每次按格式返回正确结果，顺序可以收得更短。前三步属于 A，第四步才进 B：
 
 1. **启用 API 结构化输出参数**（如支持）
 2. **配低 temperature**
@@ -97,9 +58,33 @@
 
 前三步纯 API 调用可做，覆盖大部分格式稳定性问题；第四步需少量后端代码。**推理时工程 + 结构化输出 + 校验重试可覆盖绝大部分场景，不需要微调。**
 
+**评估与观测**横切 A、B、C。每一级都看格式是否稳定、事实是否靠得住、延迟和成本是否可接受。用观测结果决定留下还是升级，它本身不是第四条路线。
+
+换模型或做路由、蒸馏、继续预训练是进阶选项，不在默认顺序里。A、B、C 都对不上任务约束时，再单独考虑。
+
+## 路线 A 纯提示层
+
+权重不动，只改提示和调用参数，纯 API 调用可完成（Prompt-level）。格式不稳时的先后顺序见[选路线](#选路线)里的前三步。这一层能用的做法如下。
+
+### 路线 A 的方法
+
+- 系统消息硬性约束输出格式（用分隔符隔离指令与内容）
+- **零样本提示**（Zero-shot）：只给指令，不给示例
+- **少样本提示**（Few-shot / In-Context Learning）：在 prompt 里给 1~3 个「输入→期望输出」示例，让模型模仿。纯文本操作，成本最低
+- 低 temperature / top_p，降低随机性
+- API 结构化输出参数（`response_format` 设为 `json_object` 或 JSON Schema），从解码层杜绝格式错误
+- 分步拆解、链式调用：把复杂任务拆成多次 API 调用，每次任务更窄
+
+推理增强里，下面两种属于路线 A，不需要微调：
+
+- **Chain-of-Thought（CoT，思维链）**：让模型先输出中间推理步骤再给答案，提升复杂推理表现
+- **Self-Consistency（自洽性）**：同一问题多次采样（调高 temperature 让路径不同），对最终答案多数投票。代价是 API 调用次数翻倍。适合有唯一答案的数学/逻辑题
+
+要外部工具时离开 A，用路线 B 的 ReAct。
+
 ### 何时用 CO-STAR 与 Anthropic
 
-前人已经给出成熟方案，**不自创提示设计的维度**。写 prompt 时按任务类型直接采用以下两个标准（全文见 [CO-STAR 框架](docs/co-star.md) 与 [Anthropic 官方最佳实践](docs/anthropic-prompt-engineering.md)）：
+前人已经给出成熟方案，**不自创提示设计的维度**。这两套标准是路线 A 的写 prompt 工具，按任务类型取用。全文见 [CO-STAR 框架](docs/co-star.md) 与 [Anthropic 官方最佳实践](docs/anthropic-prompt-engineering.md)。
 
 - **[CO-STAR](docs/co-star.md)**：六要素 C 背景 / O 目标 / S 风格 / T 语调 / A 受众 / R 响应。适合内容创作类、输出面向特定受众的任务。
 - **[Anthropic 官方最佳实践](docs/anthropic-prompt-engineering.md)**：8 条技巧——清晰直接 / 示例 / CoT / XML 标签 / 角色 / 预填充 / 链式提示 / 长上下文。适合 API 调用、输出被程序消费的工程场景。
@@ -108,44 +93,61 @@
 |---|---|
 | 内容创作、文案、面向特定受众的输出 | [CO-STAR](docs/co-star.md) |
 | API 工程调用，输出被下游程序消费 | [Anthropic 清单](docs/anthropic-prompt-engineering.md)（核心三件：XML 标签隔离 + 示例 + 显式输出格式） |
-| 复杂工程 prompt | 并用：[CO-STAR](docs/co-star.md) 定"要哪些要素"，[Anthropic](docs/anthropic-prompt-engineering.md) 定"怎么组织"（system prompt 角色、XML 分隔、示例数量） |
+| 复杂工程 prompt | 并用：[CO-STAR](docs/co-star.md) 定「要哪些要素」，[Anthropic](docs/anthropic-prompt-engineering.md) 定「怎么组织」（system prompt 角色、XML 分隔、示例数量） |
 
----
+格式仍不稳、知识必须留在模型外面、或必须调用工具时，升级到[路线 B](#路线-b-系统增强的推理时工程)。
 
-### 核心概念澄清
+## 路线 B 系统增强的推理时工程
 
-#### Prompt 相关术语
+A 把提示和参数用尽仍不够，就在系统侧补能力。这一级仍不改权重，需要 API 之外的基础设施（System-level）。
+
+- **输出校验 + 自动重试**：应用层用 JSON Schema / 正则校验，不合规就重调，并把错误反馈给模型。这是格式问题从 A 升到 B 的那一步，需少量后端代码。
+- **RAG**（检索增强生成）：先检索相关资料再让模型回答，减少胡编、提升事实准确率。知识必须外置时走这里，资料留在检索里。
+- **上下文工程**：向量库、文档处理、查询重写、状态管理
+- **Function Calling / 工具调用**：让模型调函数查真实数据，服务端需实现函数端点
+
+**ReAct** 是这一级的推理模式：让模型「边想边查」——循环执行 Thought（思考缺什么）→ Action（决定调哪个工具）→ Observation（系统执行查询并返回结果），直到信息足够给出答案。需要外部工具配合，不是纯 API 调用能自动完成的。
+
+部署时要防提示注入，见[附录](docs/appendix.md#提示注入安全项)。
+
+系统加上之后仍不够，先对照[路线 C 的适用条件](#路线-c-何时才上微调)。四条都不成立，就停在 B。
+
+## 路线 C 何时才上微调
+
+A 和 B 都到了边界，才考虑改权重。微调（Fine-tuning，含 PEFT）用数据继续训练模型、修改模型权重，让模型内化格式或领域知识。它是升级选项，不是起点：提示写完不会自动走到这里。
+
+适用条件，命中才上：
+
+1. 格式极复杂，结构化输出参数搞不定
+2. 领域术语/风格要求高，提示里塞示例太占 token
+3. 延迟敏感，需要缩短提示
+4. 厂商提供微调 API 且成本可接受
+
+C 含参数高效微调。Prompt Tuning 训练可学习的「软提示」向量，Prefix Tuning 在每层 Transformer 前加可训练前缀向量；两者都不是人写的文字，都要能访问模型权重。在线 API 给不了这个入口，机制见[附录](docs/appendix.md#prompt-tuning-怎么做机制理解边界即可)。只拿得到厂商微调 API 时，C 指的就是这种改权重的接口。
+
+## 术语 API 边界与一句话
+
+路线选定之后的对照，不另开一条方案。
+
+### Prompt 相关术语
 
 | 术语 | 英文 | 含义 |
 |---|---|---|
 | 提示工程 | Prompt Engineering | 系统性设计提示词与调用参数，让模型稳定、可重复、规模化地输出正确结果 |
 | 提示设计 | Prompt Design | 侧重沟通与表达：写清指令、设定角色、明确格式。常与 Prompt Engineering 混用 |
-| 提示微调 | Prompt Tuning | 改模型内部参数的技术：训练可学习的"软提示"向量，**不是人写的文字** |
+| 提示微调 | Prompt Tuning | 改模型内部参数的技术：训练可学习的「软提示」向量，**不是人写的文字** |
 | 前缀调优 | Prefix Tuning | Prompt Tuning 的近亲，在每层 Transformer 前加可训练前缀向量 |
 
 **关键区分：**
 
-> Prompt Design / Engineering 是**推理时工程**（模型权重不动）；
-> Prompt Tuning / Prefix Tuning 是**参数高效微调**（改内部参数，需要模型权重访问权限）。
+> Prompt Design / Engineering 是**推理时工程**（模型权重不动），落在路线 A，需要工具或检索时进入路线 B；
+> Prompt Tuning / Prefix Tuning 是**参数高效微调**（改内部参数，需要模型权重访问权限），落在路线 C。
 
-两条线的"怎么做"：Prompt Design 直接用现成标准，见 [CO-STAR 框架](docs/co-star.md) 与 [Anthropic 官方最佳实践](docs/anthropic-prompt-engineering.md)；Prompt Tuning 的机制见[附录](docs/appendix.md#prompt-tuning-怎么做机制理解边界即可)。
+各自怎么做：Prompt Design 直接用现成标准，见 [CO-STAR 框架](docs/co-star.md) 与 [Anthropic 官方最佳实践](docs/anthropic-prompt-engineering.md)；Prompt Tuning 的机制见[附录](docs/appendix.md#prompt-tuning-怎么做机制理解边界即可)。
 
-### Prompt 工程内部的方法论
+### API 服务的能力边界
 
-#### 按示例数量分
-
-- **零样本**（Zero-shot）：不给示例，只写指令
-- **少样本**（Few-shot / In-Context Learning）：在 prompt 里给示例让模型模仿。纯文本操作，成本最低
-
-#### 推理增强提示（Reasoning-augmented）——均不需要微调
-
-- **Chain-of-Thought（CoT，思维链）**：让模型先输出中间推理步骤再给答案，提升复杂推理表现
-- **Self-Consistency（自洽性）**：同一问题多次采样（调高 temperature 让路径不同），对最终答案多数投票。代价是 API 调用次数翻倍。适合有唯一答案的数学/逻辑题
-- **ReAct**：让模型"边想边查"——循环执行 Thought（思考缺什么）→ Action（决定调哪个工具）→ Observation（系统执行查询并返回结果），直到信息足够给出答案。需要外部工具配合，不是纯 API 调用能自动完成的
-
-提示注入（安全项）见[附录](docs/appendix.md#提示注入安全项)。
-
-### API 服务的能力边界（OpenAI / DeepSeek / GLM 等在线 API）
+范围是 OpenAI / DeepSeek / GLM 等在线 API。
 
 | 能做什么 | 不能做什么 |
 |---|---|
@@ -161,14 +163,12 @@ IAG 组内调研的能做与不能做见[附录](docs/appendix.md#iag-组内调�
 
 - Prompt Design = 写给人看的提示词；Prompt Tuning = 训给机器用的提示向量
 - Self-Consistency = 闭卷考多遍取平均分；ReAct = 开卷考，允许翻书查资料
-- 推理增强提示不需要微调；微调是独立路线，**不是起点**
-
----
+- 推理增强提示不需要微调。默认从 A 到 B；微调是路线 C，**不是起点**
 
 ## 维护约定
 
-- 只收"经过实践检验或有明确文献依据"的判断；方法类内容不自创维度，直接译介 CO-STAR 与 Anthropic 两个标准。
-- 入口页只留边界判断。CO-STAR、Anthropic 的全文，以及机制细节、安全项、组内调研，分文件放在 `docs/`。
+- 只收「经过实践检验或有明确文献依据」的判断；方法类内容不自创维度，直接译介 CO-STAR 与 Anthropic 两个标准。
+- 入口页按「先判断类型 → 再下钻方法」组织：判据、默认顺序 A → B → C、各路线的方法包。CO-STAR 与 Anthropic 的全文，以及机制细节、安全项、组内调研，分文件放在 `docs/`。
 - 页面公开，欢迎学生指正——发现判断过时直接提 issue。
 
 * maintained by [@yanbin-wang](https://github.com/yanbin-wang)
