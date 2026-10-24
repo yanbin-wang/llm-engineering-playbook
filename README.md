@@ -17,7 +17,11 @@
 
 | # | 主题 | 回答的问题 |
 |---|---|---|
-| 01 | [Prompt 工程与微调的边界](docs/01-prompt-engineering-vs-finetuning.md) | 术语混淆怎么破？推理时工程 vs 微调，两条路线怎么选？在线 API 的能力边界在哪？ |
+| 01 | [Prompt 工程与微调的边界](docs/01-prompt-engineering-vs-finetuning.md) | 推理时工程 vs 微调，两条路线怎么选？在线 API 能力边界在哪？ |
+| 02 | [CO-STAR 框架（中文版）](docs/02-co-star-framework.md) | 写结构化 prompt 的业界标准框架（GovTech / GPT-4 提示工程大赛冠军方案） |
+| 03 | [Anthropic 官方提示工程最佳实践（中文版）](docs/03-anthropic-prompting-best-practices.md) | 厂商官方技巧清单：清晰直接、示例、CoT、XML 标签、角色、预填充、链式、长上下文 |
+
+**使用方式**：日常写 prompt 直接翻 02 / 03 照做——它们是两个原始标准，不做任何汇总；01 只在"要不要微调、要不要上系统层"这类选型决策时用来快速回忆边界。
 
 ## 维护约定
 
